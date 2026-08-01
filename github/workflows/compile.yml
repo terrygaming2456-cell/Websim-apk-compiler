@@ -1,7 +1,7 @@
 name: Remote Websim APK Compiler
 on:
   repository_dispatch:
-    types: [trigger-apk-build]
+    types: [trigger-apk-build, apk-build, build-apk]
 
 jobs:
   build-apk:
@@ -21,19 +21,18 @@ jobs:
       - name: Decode Websim Project Payload
         run: |
           echo "${{ github.event.client_payload.zip_data }}" | base64 --decode > project.zip
-          mkdir www
+          mkdir -p www
           unzip project.zip -d ./www
 
       - name: Generate Native Application Container
         run: |
           npm install -g @bubblewrap/cli
-          # This creates a basic Android build profile using your payload settings
-          echo '{"appName":"${{ github.event.client_payload.app_name }}","domain":"websim.ai","packageName":"${{ github.event.client_payload.package_id }}","startUrl":"/index.html","iconUrl":"/icon.png"}' > twa-manifest.json
+          echo '{"appName":"${{ github.event.client_payload.app_name || 'WebsimApp' }}","domain":"websim.ai","packageName":"${{ github.event.client_payload.package_id || 'com.websim.app' }}","startUrl":"/index.html","iconUrl":"/icon.png"}' > twa-manifest.json
           bubblewrap init --manifest=./www/manifest.json --meta=./meta.json --confirm || true
           bubblewrap build --confirm || true
 
       - name: Upload Finished Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ github.event.client_payload.app_name }}-APK
+          name: APK-Package
           path: ./**/*.apk
