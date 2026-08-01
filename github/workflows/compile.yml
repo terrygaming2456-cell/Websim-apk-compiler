@@ -1,0 +1,39 @@
+name: Remote Websim APK Compiler
+on:
+  repository_dispatch:
+    types: [trigger-apk-build]
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Setup Java Development Kit (JDK)
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Decode Websim Project Payload
+        run: |
+          echo "${{ github.event.client_payload.zip_data }}" | base64 --decode > project.zip
+          mkdir www
+          unzip project.zip -d ./www
+
+      - name: Generate Native Application Container
+        run: |
+          npm install -g @bubblewrap/cli
+          # This creates a basic Android build profile using your payload settings
+          echo '{"appName":"${{ github.event.client_payload.app_name }}","domain":"websim.ai","packageName":"${{ github.event.client_payload.package_id }}","startUrl":"/index.html","iconUrl":"/icon.png"}' > twa-manifest.json
+          bubblewrap init --manifest=./www/manifest.json --meta=./meta.json --confirm || true
+          bubblewrap build --confirm || true
+
+      - name: Upload Finished Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ github.event.client_payload.app_name }}-APK
+          path: ./**/*.apk
